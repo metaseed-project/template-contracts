@@ -37,7 +37,7 @@ describe("gameAddress tests", () => {
   it("retrieves gameAddress by id", () => {
     addGameAddress("hello world");
     const _gameAddresses = getGameAddress(0);
-    expect(_gameAddresses).toIncludeEqual(
+    expect([_gameAddresses]).toIncludeEqual(
       gameAddress,
       "gameAddresses should include:\n" + gameAddress.toJSON()
     );
@@ -46,20 +46,15 @@ describe("gameAddress tests", () => {
   it("only show the last 20 gameAddresses", () => {
     addGameAddress("hello world");
     const newAddresses: GameAddress[] = [];
-    for (let i: i32 = 0; i < 20; i++) {
+    for (let i: i32 = 0; i < 40; i++) {
       const text = "gameAddress #" + i.toString();
       newAddresses.push(createGameAddress(text));
       addGameAddress(text);
     }
     const gameAddresses = getGameAddresses();
-    log(gameAddresses.slice(7, 10));
     expect(gameAddresses).toStrictEqual(
-      newAddresses,
+      newAddresses.slice(20, 40),
       "should be the last ten gameAddresses"
-    );
-    expect(gameAddresses).not.toIncludeEqual(
-      gameAddress,
-      "shouldn't contain the first element"
     );
   });
 });
