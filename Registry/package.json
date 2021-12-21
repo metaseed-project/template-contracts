@@ -42,38 +42,5 @@
   },
   "resolutions": {
     "@babel/preset-env": "7.13.8"
-  },
-  "jest": {
-    "projects": [
-      {
-        "displayName": "User interface tests",
-        "testEnvironment": "jsdom",
-        "testMatch": [
-          "<rootDir>/src/tests/ui/*.js"
-        ]
-      },
-      {
-        "displayName": "Integration tests",
-        "testEnvironment": "near-cli/test_environment",
-        "testMatch": [
-          "<rootDir>/src/tests/integration/*.js"
-        ]
-      }
-    ],
-    "testPathIgnorePatterns": [
-      "assembly/*"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }
