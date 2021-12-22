@@ -4,7 +4,6 @@
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
     "deploy": "yarn build && near deploy",
-    "build": "yarn build:contract",
     "build:contract": "asb",
     "build:contract:debug": "asb --target debug",
     "dev": "yarn build:contract:debug && near dev-deploy && nodemon --watch assembly -e ts --exec yarn dev:start",

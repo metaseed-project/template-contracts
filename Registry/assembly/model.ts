@@ -6,7 +6,7 @@ import { context, PersistentVector } from "near-sdk-as";
 @nearBindgen
 export class GameAddress {
   sender: string;
-  constructor(public contractAddress: string) {
+  constructor(public contractAddress: string, public name: string) {
     this.sender = context.sender;
   }
 }
