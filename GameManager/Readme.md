@@ -22,13 +22,13 @@ ivikkktest.testnet
 
 ## Create NFT Ingame Contract
 
-near call $ID create_ingame_nft '{"prefix": "magic_sword4"}' --accountId phoneiostest.testnet --depositYocto 3189980000000000000000000
+near call $ID create_ingame_nft '{"prefix": "magic_swo"}' --accountId phoneiostest.testnet --depositYocto 50189980000000000000000000 --gas 300000000000000
 
 ## Call NFT Ingame Contract
 
 near call magic_sword.$ID new_default_meta '{"owner_id": "phoneiostest.testnet"}' --accountId phoneiostest.testnet
 
-near view magic_sword4.$ID nft_metadata
+near view magic_swo.$ID nft_metadata
 
 30000000000000
 2428023852964

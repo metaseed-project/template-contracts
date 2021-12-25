@@ -1,13 +1,22 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
+use near_sdk::serde::{Serialize};
+use near_sdk::serde_json;
+
 
 near_sdk::setup_alloc!();
 
 const MIN_ATTACHED_BALANCE: Balance = 0;
 
-// const NFT_GAS_NEW: GAS = 4_201_706_103_318_740_100_000_000;
+const NFT_GAS_NEW: Gas = 50_000_000_000_000;
 
 const NFT_WASM_CODE: &[u8] = include_bytes!("../../SimpleNFT/res/non_fungible_token.wasm");
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct TokenArgs {
+    pub owner_id: AccountId,
+}
 
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
@@ -45,11 +54,21 @@ fn create_ingame_contract(prefix: AccountId, code: Vec<u8>) -> Promise {
       "Not enough attached deposit"
     );
 
+    let args: TokenArgs = TokenArgs {
+      owner_id: env::predecessor_account_id(),
+    };
+
     Promise::new(subaccount_id)
         .create_account()
         .transfer(env::attached_deposit())
         .add_full_access_key(env::signer_account_pk())
         .deploy_contract(code)
+        .function_call(
+          b"new_default_meta".to_vec(),
+          serde_json::to_vec(&args).unwrap(),
+          0,
+          NFT_GAS_NEW
+        )
 }
 
 
