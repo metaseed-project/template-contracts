@@ -14,6 +14,8 @@ cargo test -- --nocapture
 
 ### Quickest deploy
 
+Last deploy: dev-1640027402102-97310025672932
+
 ```bash
 near dev-deploy --wasmFile res/non_fungible_token.wasm
 ```
