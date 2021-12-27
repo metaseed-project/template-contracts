@@ -51,7 +51,7 @@ impl Registry {
         let subaccount_id = create_account_subaccount(prefix);
 
         assert!(
-          !self.game_contracts.get(&subaccount_id).is_none(),
+          self.game_contracts.get(&subaccount_id).is_none(),
           "Already exist"
         );
 
