@@ -48,12 +48,12 @@ impl Registry {
 
     #[payable]
     pub fn create_game_manager(&mut self, prefix: AccountId) {
-        assert!(
-          env::predecessor_account_id() == self.owner_id,
-          "Not an owner"
-        );
-
         let subaccount_id = create_account_subaccount(prefix);
+
+        assert!(
+          !self.game_contracts.get(&subaccount_id).is_none(),
+          "Already exist"
+        );
 
         let options: GameOptions = GameOptions {
           extra: "".to_string(),
@@ -65,25 +65,6 @@ impl Registry {
 
     pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
         return self.game_contracts.get(&account_id);
-    }
-
-    #[payable]
-    pub fn set_game(&mut self, account_id: AccountId, extra: String) {
-      assert!(
-        env::predecessor_account_id() == self.owner_id,
-        "Not an owner"
-      );
-
-      assert!(
-        env::is_valid_account_id(account_id.as_bytes()),
-        "Token Account ID is invalid"
-      );
-
-      let options: GameOptions = GameOptions {
-        extra: extra,
-      };
-
-      self.game_contracts.insert(&account_id, &options);
     }
 }
 

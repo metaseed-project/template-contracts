@@ -2,11 +2,11 @@
 
 ## actors
 
-near create-account registry.$Admin --masterAccount $Admin
+near create-account registry2.$Admin --masterAccount $Admin
 
 Admin=metaseed.testnet
 
-ContractId=registry.$Admin
+ContractId=registry2.$Admin
 
 GD=phoneiostest.testnet
 
@@ -14,7 +14,7 @@ GD=phoneiostest.testnet
 
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 
-near deploy --wasmFile target/wasm32-unknown-unknown/debug/registry.wasm --accountId $ContractId
+near deploy --wasmFile target/wasm32-unknown-unknown/release/registry.wasm --accountId $ContractId
 
 ### initialized
 
@@ -26,22 +26,10 @@ near call $ContractId new '{"owner_id": "'$Admin'"}' --accountId $Admin
 
 GAME_NAME=game1
 
-near call $ContractID create_ingame_nft '{"prefix": "'$NFT_PREFIX'"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
+near call $ContractId create_game_manager '{"prefix": "'$GAME_NAME'"}' --accountId $GD --depositYocto 5789980000000000000000000 --gas 300000000000000
 
-### get
+### factory2
 
-near view $ContractID get_asset '{"account_id": "'$NFT_PREFIX'.'$ContractID'"}' --accountId $Creator
+NFT_PREFIX=nft4
 
-### set
-
-near call $ContractID set_asset '{"account_id": "'$NFT_PREFIX'.'$ContractID'", "extra": ""}' --accountId $Creator
-
-## will work
-
-near call $NFT_PREFIX.$ContractID nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $Creator --deposit 0.1
-
-## won't
-
-near call nft3.$ContractID nft_mint '{"token_id": "0", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $ContractID --deposit 0.1
-
-near call nft3.$ContractID nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $Receiver --deposit 0.1
+near call $GAME_NAME.$ContractID create_ingame_nft '{"prefix": "'$NFT_PREFIX'"}' --accountId $GD --depositYocto 5189980000000000000000000 --gas 300000000000000
