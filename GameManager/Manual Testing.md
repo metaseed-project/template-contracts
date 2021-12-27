@@ -24,19 +24,21 @@ near call $ContractID new '{"owner_id": "'$Creator'"}' --accountId $Creator
 
 ### facory
 
-near call $ContractID create_ingame_nft '{"prefix": "nft4"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
+NFT_PREFIX=nft4
+
+near call $ContractID create_ingame_nft '{"prefix": "'$NFT_PREFIX'"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
 
 ### get
 
-near view $ContractID get_asset '{"account_id": "nft3.'$ContractID'"}' --accountId $Creator
+near view $ContractID get_asset '{"account_id": "'$NFT_PREFIX'.'$ContractID'"}' --accountId $Creator
 
 ### set
 
-near call $ContractID set_asset '{"account_id": "nft3.'$ContractID'", "extra": ""}' --accountId $Creator
+near call $ContractID set_asset '{"account_id": "'$NFT_PREFIX'.'$ContractID'", "extra": ""}' --accountId $Creator
 
 ## will work
 
-near call nft3.$ContractID nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $Creator --deposit 0.1
+near call $NFT_PREFIX.$ContractID nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $Creator --deposit 0.1
 
 ## won't
 
