@@ -2,25 +2,29 @@
 
 ## actors
 
-near create-account registry.ivikkktest.testnet --masterAccount ivikkktest.testnet
+near create-account registry.$Admin --masterAccount $Admin
 
-Admin=registry.ivikkktest.testnet
+Admin=metaseed.testnet
 
-Creator=phoneiostest.testnet
+ContractId=registry.$Admin
+
+GD=phoneiostest.testnet
 
 ## deploy
 
-near deploy --wasmFile target/wasm32-unknown-unknown/release/game_manager.wasm --accountId $ContractID
+RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
+
+near deploy --wasmFile target/wasm32-unknown-unknown/debug/registry.wasm --accountId $ContractId
 
 ### initialized
 
-near call $ContractID new '{"owner_id": "'$Creator'"}' --accountId $Creator
+near call $ContractId new '{"owner_id": "'$Admin'"}' --accountId $Admin
 
 ## use
 
 ### facory
 
-NFT_PREFIX=nft4
+GAME_NAME=game1
 
 near call $ContractID create_ingame_nft '{"prefix": "'$NFT_PREFIX'"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
 

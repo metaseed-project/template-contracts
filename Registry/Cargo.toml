@@ -1,5 +1,5 @@
 [package]
-name = "game_manager"
+name = "registry"
 version = "0.1.0"
 authors = ["IV <vivan.volovik@gmail.com>"]
 edition = "2018"

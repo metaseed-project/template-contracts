@@ -9,13 +9,13 @@ near_sdk::setup_alloc!();
 
 const DEPLOY_ATTACHED_BALANCE: Balance = 0;
 
-const NFT_GAS_NEW: Gas = 50_000_000_000_000;
+const GM_GAS_NEW: Gas = 50_000_000_000_000;
 
-const NFT_WASM_CODE: &[u8] = include_bytes!("../../GameManager/target/wasm32-unknown-unknown/release/game_manager.wasm");
+const GM_WASM_CODE: &[u8] = include_bytes!("../../GameManager/target/wasm32-unknown-unknown/release/game_manager.wasm");
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct TokenArgs {
+pub struct GMArgs {
     pub owner_id: AccountId,
 }
 
@@ -47,7 +47,7 @@ impl Registry {
     }
 
     #[payable]
-    pub fn create_ingame_nft(&mut self, prefix: AccountId) {
+    pub fn create_game_manager(&mut self, prefix: AccountId) {
         assert!(
           env::predecessor_account_id() == self.owner_id,
           "Not an owner"
@@ -60,15 +60,15 @@ impl Registry {
         };
 
         self.game_contracts.insert(&subaccount_id, &options);
-        create_ingame_contract(subaccount_id, NFT_WASM_CODE.to_vec());
+        create_gm_contract(subaccount_id,  GM_WASM_CODE.to_vec());
     }
 
-    pub fn get_asset(&self, account_id: AccountId) -> Option<GameOptions> {
+    pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
         return self.game_contracts.get(&account_id);
     }
 
     #[payable]
-    pub fn set_asset(&mut self, account_id: AccountId, extra: String) {
+    pub fn set_game(&mut self, account_id: AccountId, extra: String) {
       assert!(
         env::predecessor_account_id() == self.owner_id,
         "Not an owner"
@@ -103,13 +103,13 @@ fn create_account_subaccount(prefix: AccountId) -> String {
   subaccount_id
 }
 
-fn create_ingame_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
+fn create_gm_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
     assert!(
       env::attached_deposit() >= DEPLOY_ATTACHED_BALANCE,
       "Not enough attached deposit"
     );
 
-    let args: TokenArgs = TokenArgs {
+    let args: GMArgs = GMArgs {
       owner_id: env::predecessor_account_id(),
     };
 
@@ -119,10 +119,10 @@ fn create_ingame_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
         .add_full_access_key(env::signer_account_pk())
         .deploy_contract(code)
         .function_call(
-          b"new_default_meta".to_vec(),
+          b"new".to_vec(),
           serde_json::to_vec(&args).unwrap(),
           0,
-          NFT_GAS_NEW
+          GM_GAS_NEW
         )
 }
 
