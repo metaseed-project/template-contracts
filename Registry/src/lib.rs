@@ -11,7 +11,7 @@ const DEPLOY_ATTACHED_BALANCE: Balance = 0;
 
 const NFT_GAS_NEW: Gas = 50_000_000_000_000;
 
-const NFT_WASM_CODE: &[u8] = include_bytes!("../../SimpleNFT/res/non_fungible_token.wasm");
+const NFT_WASM_CODE: &[u8] = include_bytes!("../../GameManager/target/wasm32-unknown-unknown/release/game_manager.wasm");
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -21,7 +21,7 @@ pub struct TokenArgs {
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct AssetOptions {
+pub struct GameOptions {
   extra: String,
 }
 
@@ -29,20 +29,20 @@ pub struct AssetOptions {
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct GameManager {
+pub struct Registry {
     pub owner_id: AccountId,
-    pub ingame_assets: LookupMap<String, AssetOptions>,
+    pub game_contracts: LookupMap<String, GameOptions>,
 }
 
 #[near_bindgen]
-impl GameManager {
+impl Registry {
 
     #[init]
     pub fn new(owner_id: AccountId) -> Self {
         assert!(env::state_read::<Self>().is_none(), "Already initialized");
         Self {
           owner_id,
-          ingame_assets: LookupMap::new(b"r".to_vec()),
+          game_contracts: LookupMap::new(b"r".to_vec()),
         }
     }
 
@@ -55,16 +55,16 @@ impl GameManager {
 
         let subaccount_id = create_account_subaccount(prefix);
 
-        let options: AssetOptions = AssetOptions {
+        let options: GameOptions = GameOptions {
           extra: "".to_string(),
         };
 
-        self.ingame_assets.insert(&subaccount_id, &options);
+        self.game_contracts.insert(&subaccount_id, &options);
         create_ingame_contract(subaccount_id, NFT_WASM_CODE.to_vec());
     }
 
-    pub fn get_asset(&self, account_id: AccountId) -> Option<AssetOptions> {
-        return self.ingame_assets.get(&account_id);
+    pub fn get_asset(&self, account_id: AccountId) -> Option<GameOptions> {
+        return self.game_contracts.get(&account_id);
     }
 
     #[payable]
@@ -79,11 +79,11 @@ impl GameManager {
         "Token Account ID is invalid"
       );
 
-      let options: AssetOptions = AssetOptions {
+      let options: GameOptions = GameOptions {
         extra: extra,
       };
 
-      self.ingame_assets.insert(&account_id, &options);
+      self.game_contracts.insert(&account_id, &options);
     }
 }
 
