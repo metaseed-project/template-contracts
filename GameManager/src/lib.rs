@@ -48,6 +48,10 @@ impl GameManager {
 
     #[payable]
     pub fn create_ingame_nft(&mut self, prefix: AccountId) {
+        assert!(
+          env::predecessor_account_id() == self.owner_id,
+          "Not an owner"
+        );
 
         let subaccount_id = create_account_subaccount(prefix);
 
@@ -60,11 +64,16 @@ impl GameManager {
     }
 
     pub fn get_asset(&self, account_id: AccountId) -> Option<AssetOptions> {
-      return self.ingame_assets.get(&account_id);
+        return self.ingame_assets.get(&account_id);
     }
 
     #[payable]
     pub fn set_asset(&mut self, account_id: AccountId, extra: String) {
+      assert!(
+        env::predecessor_account_id() == self.owner_id,
+        "Not an owner"
+      );
+
       assert!(
         env::is_valid_account_id(account_id.as_bytes()),
         "Token Account ID is invalid"

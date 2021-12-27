@@ -1,14 +1,38 @@
-### This will become automated
+# This will become automated
 
-ContractID=dev-1640363567306-23369340129852
+## actors
+
+Admin=ivikkktest.testnet
+
+ContractID=gamemanager.$Admin
 
 Creator=phoneiostest.testnet
 
-Receiver=ivikkktest.testnet
+Receiver=testplayer.testnet
 
-near call $ContractID create_ingame_nft '{"prefix": "nft3"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
+near create-account gamemanager.$Admin --masterAccount $Admin
 
-near call $ContractID get_asset '{"account_id": "nft3.$ContractID"}' --accountId $Creator
+## deploy
+
+near deploy --wasmFile target/wasm32-unknown-unknown/release/game_manager.wasm --accountId $ContractID
+
+### initialized
+
+near call $ContractID new '{"owner_id": "'$Creator'"}' --accountId $Creator
+
+## use
+
+### facory
+
+near call $ContractID create_ingame_nft '{"prefix": "nft4"}' --accountId $Creator --depositYocto 5189980000000000000000000 --gas 300000000000000
+
+### get
+
+near view $ContractID get_asset '{"account_id": "nft3.'$ContractID'"}' --accountId $Creator
+
+### set
+
+near call $ContractID set_asset '{"account_id": "nft3.'$ContractID'", "extra": ""}' --accountId $Creator
 
 ## will work
 
