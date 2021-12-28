@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
 use near_sdk::serde::{Serialize};
 use near_sdk::serde_json;
@@ -31,7 +31,7 @@ pub struct AssetOptions {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct GameManager {
     pub owner_id: AccountId,
-    pub ingame_assets: LookupMap<String, AssetOptions>,
+    pub ingame_assets: UnorderedMap<AccountId, AssetOptions>,
 }
 
 #[near_bindgen]
@@ -42,7 +42,7 @@ impl GameManager {
         assert!(env::state_read::<Self>().is_none(), "Already initialized");
         Self {
           owner_id,
-          ingame_assets: LookupMap::new(b"r".to_vec()),
+          ingame_assets: UnorderedMap::new(b"r".to_vec()),
         }
     }
 
@@ -63,10 +63,6 @@ impl GameManager {
         create_ingame_contract(subaccount_id, NFT_WASM_CODE.to_vec());
     }
 
-    pub fn get_asset(&self, account_id: AccountId) -> Option<AssetOptions> {
-        return self.ingame_assets.get(&account_id);
-    }
-
     #[payable]
     pub fn set_asset(&mut self, account_id: AccountId, extra: String) {
       assert!(
@@ -84,6 +80,23 @@ impl GameManager {
       };
 
       self.ingame_assets.insert(&account_id, &options);
+    }
+
+    pub fn get_asset(&self, account_id: AccountId) -> Option<AssetOptions> {
+      return self.ingame_assets.get(&account_id);
+    }
+
+    pub fn get_counts(&self) -> u64 {
+      return self.ingame_assets.len();
+    }
+
+    /// Retrieves multiple elements from the `ingame_assets`.
+    pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, AssetOptions)> {
+      let keys = self.ingame_assets.keys_as_vector();
+      let values = self.ingame_assets.values_as_vector();
+      (from_index..std::cmp::min(from_index + limit, self.ingame_assets.len()))
+          .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
+          .collect()
     }
 }
 

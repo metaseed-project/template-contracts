@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
 use near_sdk::serde::{Serialize};
 use near_sdk::serde_json;
@@ -31,7 +31,7 @@ pub struct GameOptions {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Registry {
     pub owner_id: AccountId,
-    pub game_contracts: LookupMap<String, GameOptions>,
+    pub game_contracts: UnorderedMap<AccountId, GameOptions>,
 }
 
 #[near_bindgen]
@@ -42,7 +42,7 @@ impl Registry {
         assert!(env::state_read::<Self>().is_none(), "Already initialized");
         Self {
           owner_id,
-          game_contracts: LookupMap::new(b"r".to_vec()),
+          game_contracts: UnorderedMap::new(b"r".to_vec()),
         }
     }
 
@@ -60,11 +60,25 @@ impl Registry {
         };
 
         self.game_contracts.insert(&subaccount_id, &options);
+
         create_gm_contract(subaccount_id,  GM_WASM_CODE.to_vec());
     }
 
     pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
         return self.game_contracts.get(&account_id);
+    }
+
+    pub fn get_counts(&self) -> u64 {
+        return self.game_contracts.len();
+    }
+
+    /// Retrieves multiple elements from the `game_contracts`.
+    pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, GameOptions)> {
+      let keys = self.game_contracts.keys_as_vector();
+      let values = self.game_contracts.values_as_vector();
+      (from_index..std::cmp::min(from_index + limit, self.game_contracts.len()))
+          .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
+          .collect()
     }
 }
 
