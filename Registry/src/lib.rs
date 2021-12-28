@@ -23,6 +23,7 @@ pub struct GMArgs {
 #[serde(crate = "near_sdk::serde")]
 pub struct GameOptions {
   extra: String,
+  publisher_id: AccountId,
 }
 
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
@@ -57,6 +58,7 @@ impl Registry {
 
         let options: GameOptions = GameOptions {
           extra: "".to_string(),
+          publisher_id: env::predecessor_account_id(),
         };
 
         self.game_contracts.insert(&subaccount_id, &options);

@@ -2,11 +2,11 @@
 
 ## actors
 
-near create-account registry3.$Admin --masterAccount $Admin
+near create-account registry4.$Admin --masterAccount $Admin
 
 Admin=metaseed.testnet
 
-ContractId=registry3.$Admin
+ContractId=registry4.$Admin
 
 GD=phoneiostest.testnet
 
@@ -52,5 +52,4 @@ near view $ContractId get_games '{"from_index": 0, "limit": 10}' --accountId $GD
 
 near view $GAME_NAME.$ContractId get_counts {} --accountId $GD
 
-//TODO: change to get_assets
-near view $GAME_NAME.$ContractId get_games '{"from_index": 0, "limit": 10}' --accountId $GD
+near view $GAME_NAME.$ContractId get_assets '{"from_index": 0, "limit": 10}' --accountId $GD
