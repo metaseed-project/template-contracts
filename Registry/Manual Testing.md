@@ -2,11 +2,11 @@
 
 ## actors
 
-near create-account registry2.$Admin --masterAccount $Admin
+near create-account registry3.$Admin --masterAccount $Admin
 
 Admin=metaseed.testnet
 
-ContractId=registry2.$Admin
+ContractId=registry3.$Admin
 
 GD=phoneiostest.testnet
 
@@ -43,3 +43,14 @@ near view $GAME_NAME.$ContractId get_asset '{"account_id": "'$NFT_PREFIX.$GAME_N
 ### Mint NFT
 
 near call $NFT_PREFIX.$GAME_NAME.$ContractId nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $GD --deposit 0.1
+
+### Browse registry
+
+near view $ContractId get_counts {} --accountId $GD
+
+near view $ContractId get_games '{"from_index": 0, "limit": 10}' --accountId $GD
+
+near view $GAME_NAME.$ContractId get_counts {} --accountId $GD
+
+//TODO: change to get_assets
+near view $GAME_NAME.$ContractId get_games '{"from_index": 0, "limit": 10}' --accountId $GD

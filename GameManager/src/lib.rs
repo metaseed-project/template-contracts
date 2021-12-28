@@ -91,7 +91,7 @@ impl GameManager {
     }
 
     /// Retrieves multiple elements from the `ingame_assets`.
-    pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, AssetOptions)> {
+    pub fn get_assets(&self, from_index: u64, limit: u64) -> Vec<(AccountId, AssetOptions)> {
       let keys = self.ingame_assets.keys_as_vector();
       let values = self.ingame_assets.values_as_vector();
       (from_index..std::cmp::min(from_index + limit, self.ingame_assets.len()))
