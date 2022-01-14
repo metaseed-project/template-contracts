@@ -7,11 +7,25 @@ use near_sdk::serde_json;
 
 near_sdk::setup_alloc!();
 
-const DEPLOY_ATTACHED_BALANCE: Balance = 0;
+
+const MIN_GM_ATTACHED_BALANCE: Balance = 0;
 
 const GM_GAS_NEW: Gas = 50_000_000_000_000;
 
 const GM_WASM_CODE: &[u8] = include_bytes!("../../GameManager/target/wasm32-unknown-unknown/release/game_manager.wasm");
+
+const MIN_NFT_ATTACHED_BALANCE: Balance = 0;
+
+const NFT_GAS_NEW: Gas = 50_000_000_000_000;
+
+const NFT_WASM_CODE: &[u8] = include_bytes!("../../SimpleNFT/res/non_fungible_token.wasm");
+
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NFTArgs {
+    pub owner_id: AccountId,
+}
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -47,6 +61,23 @@ impl Registry {
         }
     }
 
+    pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
+      return self.game_contracts.get(&account_id);
+    }
+
+    pub fn get_counts(&self) -> u64 {
+        return self.game_contracts.len();
+    }
+
+    /// Retrieves multiple elements from the `game_contracts`.
+    pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, GameOptions)> {
+      let keys = self.game_contracts.keys_as_vector();
+      let values = self.game_contracts.values_as_vector();
+      (from_index..std::cmp::min(from_index + limit, self.game_contracts.len()))
+          .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
+          .collect()
+    }
+
     #[payable]
     pub fn create_game_manager(&mut self, prefix: AccountId) {
         let subaccount_id = create_account_subaccount(prefix);
@@ -66,21 +97,16 @@ impl Registry {
         create_gm_contract(subaccount_id,  GM_WASM_CODE.to_vec());
     }
 
-    pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
-        return self.game_contracts.get(&account_id);
-    }
+    #[payable]
+    pub fn create_ingame_nft(&mut self, prefix: AccountId) {
+        assert!(
+          env::predecessor_account_id() == self.owner_id,
+          "Not an owner"
+        );
 
-    pub fn get_counts(&self) -> u64 {
-        return self.game_contracts.len();
-    }
+        let subaccount_id = create_account_subaccount(prefix);
 
-    /// Retrieves multiple elements from the `game_contracts`.
-    pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, GameOptions)> {
-      let keys = self.game_contracts.keys_as_vector();
-      let values = self.game_contracts.values_as_vector();
-      (from_index..std::cmp::min(from_index + limit, self.game_contracts.len()))
-          .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
-          .collect()
+        create_ingame_contract(subaccount_id, NFT_WASM_CODE.to_vec());
     }
 }
 
@@ -100,9 +126,32 @@ fn create_account_subaccount(prefix: AccountId) -> String {
   subaccount_id
 }
 
+fn create_ingame_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
+  assert!(
+    env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
+    "Not enough attached deposit"
+  );
+
+  let args: NFTArgs = NFTArgs {
+    owner_id: env::predecessor_account_id(),
+  };
+
+  Promise::new(subaccount_id)
+      .create_account()
+      .transfer(env::attached_deposit())
+      .add_full_access_key(env::signer_account_pk())
+      .deploy_contract(code)
+      .function_call(
+        b"new_default_meta".to_vec(),
+        serde_json::to_vec(&args).unwrap(),
+        0,
+        NFT_GAS_NEW
+      )
+}
+
 fn create_gm_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
     assert!(
-      env::attached_deposit() >= DEPLOY_ATTACHED_BALANCE,
+      env::attached_deposit() >= MIN_GM_ATTACHED_BALANCE,
       "Not enough attached deposit"
     );
 
