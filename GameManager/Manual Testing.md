@@ -42,7 +42,7 @@ near call $ContractID set_asset '{"account_id": "'$NFT_PREFIX'.'$ContractID'", "
 
 near call $NFT_PREFIX.$ContractID nft_mint '{"token_id": "1", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $Creator --deposit 0.1
 
-## won't work
+## won't
 
 near call nft3.$ContractID nft_mint '{"token_id": "0", "receiver_id": "'$Receiver'", "token_metadata": { "title": "t", "description": "d", "media": "m", "copies": 1}}' --accountId $ContractID --deposit 0.1
 
