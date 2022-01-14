@@ -49,7 +49,7 @@ impl Registry {
 
     #[payable]
     pub fn create_game_manager(&mut self, prefix: AccountId) {
-        let subaccount_id = create_account_subaccount(prefix);
+        let subaccount_id = create_gm_subaccount(prefix);
 
         assert!(
           self.game_contracts.get(&subaccount_id).is_none(),
@@ -66,8 +66,8 @@ impl Registry {
         create_gm_contract(subaccount_id,  GM_WASM_CODE.to_vec());
     }
 
-    pub fn get_game(&self, account_id: AccountId) -> Option<GameOptions> {
-        return self.game_contracts.get(&account_id);
+    pub fn get_game(&self, game_address: AccountId) -> Option<GameOptions> {
+        return self.game_contracts.get(&game_address);
     }
 
     pub fn get_counts(&self) -> u64 {
@@ -84,7 +84,7 @@ impl Registry {
     }
 }
 
-fn create_account_subaccount(prefix: AccountId) -> String {
+fn create_gm_subaccount(prefix: AccountId) -> String {
   assert!(
     is_valid_symbol(&prefix),
     "Prefix is invalid"

@@ -1,4 +1,4 @@
-# This will become automated
+# Creating GC => NFT contract => minting NFT
 
 ## actors
 
@@ -50,6 +50,12 @@ near view $ContractId get_counts {} --accountId $GD
 
 near view $ContractId get_games '{"from_index": 0, "limit": 10}' --accountId $GD
 
+### Browse GC
+
 near view $GAME_NAME.$ContractId get_counts {} --accountId $GD
 
 near view $GAME_NAME.$ContractId get_assets '{"from_index": 0, "limit": 10}' --accountId $GD
+
+### Change GC
+
+near call $GAME_NAME.$ContractId set_asset '{"account_id": "nft4.game1.registry4.metaseed.testnet", "extra": "{'force': 10}"}' --accountId $GD --deposit 1

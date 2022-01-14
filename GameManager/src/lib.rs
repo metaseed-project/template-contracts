@@ -69,7 +69,7 @@ impl GameManager {
     pub fn create_ingame_nft(&mut self, prefix: AccountId) {
         assert!(
           env::predecessor_account_id() == self.owner_id,
-          "Not an game owner"
+          "Not a game owner"
         );
 
         let subaccount_id = create_asset_subaccount(prefix);
@@ -106,7 +106,7 @@ impl GameManager {
     pub fn create_ingame_ft(&mut self, prefix: AccountId, name: String, symbol: String, total_supply: u128) {
         assert!(
           env::predecessor_account_id() == self.owner_id,
-          "Not an game owner"
+          "Not a game owner"
         );
 
         let subaccount_id = create_asset_subaccount(prefix);
@@ -118,7 +118,7 @@ impl GameManager {
         self.ingame_assets.insert(&subaccount_id, &options);
         
         assert!(
-          env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
+          env::attached_deposit() >= MIN_FT_ATTACHED_BALANCE,
           "Not enough attached deposit"
         );
     
@@ -139,36 +139,36 @@ impl GameManager {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_contract(NFT_WASM_CODE.to_vec())
+            .deploy_contract(FT_WASM_CODE.to_vec())
             .function_call(
               b"new".to_vec(),
               serde_json::to_vec(&args).unwrap(),
               0,
-              NFT_GAS_NEW
+              FT_GAS_NEW
             );
     }
 
     #[payable]
-    pub fn add_asset(&mut self, account_id: AccountId, extra: String) {
+    pub fn set_asset(&mut self, asset_address: AccountId, extra: String) {
       assert!(
         env::predecessor_account_id() == self.owner_id,
-        "Not an game owner"
+        "Not a game owner"
       );
 
       assert!(
-        env::is_valid_account_id(account_id.as_bytes()),
-        "Token Account ID is invalid"
+        env::is_valid_account_id(asset_address.as_bytes()),
+        "Asser address is invalid"
       );
 
       let options: AssetOptions = AssetOptions {
         extra: extra,
       };
 
-      self.ingame_assets.insert(&account_id, &options);
+      self.ingame_assets.insert(&asset_address, &options);
     }
 
-    pub fn get_asset(&self, account_id: AccountId) -> Option<AssetOptions> {
-      return self.ingame_assets.get(&account_id);
+    pub fn get_asset(&self, asset_address: AccountId) -> Option<AssetOptions> {
+      return self.ingame_assets.get(&asset_address);
     }
 
     pub fn get_counts(&self) -> u64 {
@@ -195,7 +195,7 @@ fn create_asset_subaccount(prefix: AccountId) -> String {
     format!("{}.{}", prefix, env::current_account_id());
   assert!(
     env::is_valid_account_id(subaccount_id.as_bytes()),
-    "Token Account ID is invalid"
+    "Asser address is invalid"
   );
 
   subaccount_id

@@ -1,4 +1,4 @@
-# Creatin NFT throw Game manager
+# Creating NFT contract => minting NFT
 
 ## actors
 
