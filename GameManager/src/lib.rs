@@ -7,15 +7,34 @@ use near_sdk::serde_json;
 
 near_sdk::setup_alloc!();
 
-const DEPLOY_ATTACHED_BALANCE: Balance = 0;
-
+const MIN_NFT_ATTACHED_BALANCE: Balance = 0;
 const NFT_GAS_NEW: Gas = 50_000_000_000_000;
-
 const NFT_WASM_CODE: &[u8] = include_bytes!("../../SimpleNFT/res/non_fungible_token.wasm");
+
+const MIN_FT_ATTACHED_BALANCE: Balance = 0;
+const FT_GAS_NEW: Gas = 50_000_000_000_000;
+const FT_WASM_CODE: &[u8] = include_bytes!("../../SimpleFT/res/fungible_token.wasm");
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct TokenArgs {
+pub struct FTMetadata {
+    pub spec: String,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u128,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct FTArgs {
+    pub owner_id: AccountId,
+    pub total_supply: u128,
+    pub metadata: FTMetadata,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NFTArgs {
     pub owner_id: AccountId,
 }
 
@@ -50,24 +69,90 @@ impl GameManager {
     pub fn create_ingame_nft(&mut self, prefix: AccountId) {
         assert!(
           env::predecessor_account_id() == self.owner_id,
-          "Not an owner"
+          "Not an game owner"
         );
 
-        let subaccount_id = create_account_subaccount(prefix);
+        let subaccount_id = create_asset_subaccount(prefix);
 
         let options: AssetOptions = AssetOptions {
           extra: "".to_string(),
         };
 
         self.ingame_assets.insert(&subaccount_id, &options);
-        create_ingame_contract(subaccount_id, NFT_WASM_CODE.to_vec());
+        
+        assert!(
+          env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
+          "Not enough attached deposit"
+        );
+    
+        let args: NFTArgs = NFTArgs {
+          owner_id: env::predecessor_account_id(),
+        };
+    
+        Promise::new(subaccount_id)
+            .create_account()
+            .transfer(env::attached_deposit())
+            .add_full_access_key(env::signer_account_pk())
+            .deploy_contract(NFT_WASM_CODE.to_vec())
+            .function_call(
+              b"new_default_meta".to_vec(),
+              serde_json::to_vec(&args).unwrap(),
+              0,
+              NFT_GAS_NEW
+            );
     }
 
     #[payable]
-    pub fn set_asset(&mut self, account_id: AccountId, extra: String) {
+    pub fn create_ingame_ft(&mut self, prefix: AccountId, name: String, symbol: String, total_supply: u128) {
+        assert!(
+          env::predecessor_account_id() == self.owner_id,
+          "Not an game owner"
+        );
+
+        let subaccount_id = create_asset_subaccount(prefix);
+
+        let options: AssetOptions = AssetOptions {
+          extra: "".to_string(),
+        };
+
+        self.ingame_assets.insert(&subaccount_id, &options);
+        
+        assert!(
+          env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
+          "Not enough attached deposit"
+        );
+    
+        let metadata: FTMetadata = FTMetadata {
+          spec: "ft-1.0.0".to_string(),
+          name: name,
+          symbol: symbol,
+          decimals: 8,
+        };
+
+        let args: FTArgs = FTArgs {
+          owner_id: env::predecessor_account_id(),
+          total_supply: total_supply,
+          metadata: metadata,
+        };
+    
+        Promise::new(subaccount_id)
+            .create_account()
+            .transfer(env::attached_deposit())
+            .add_full_access_key(env::signer_account_pk())
+            .deploy_contract(NFT_WASM_CODE.to_vec())
+            .function_call(
+              b"new".to_vec(),
+              serde_json::to_vec(&args).unwrap(),
+              0,
+              NFT_GAS_NEW
+            );
+    }
+
+    #[payable]
+    pub fn add_asset(&mut self, account_id: AccountId, extra: String) {
       assert!(
         env::predecessor_account_id() == self.owner_id,
-        "Not an owner"
+        "Not an game owner"
       );
 
       assert!(
@@ -100,7 +185,7 @@ impl GameManager {
     }
 }
 
-fn create_account_subaccount(prefix: AccountId) -> String {
+fn create_asset_subaccount(prefix: AccountId) -> String {
   assert!(
     is_valid_symbol(&prefix),
     "Prefix is invalid"
@@ -115,30 +200,6 @@ fn create_account_subaccount(prefix: AccountId) -> String {
 
   subaccount_id
 }
-
-fn create_ingame_contract(subaccount_id: AccountId, code: Vec<u8>) -> Promise {
-    assert!(
-      env::attached_deposit() >= DEPLOY_ATTACHED_BALANCE,
-      "Not enough attached deposit"
-    );
-
-    let args: TokenArgs = TokenArgs {
-      owner_id: env::predecessor_account_id(),
-    };
-
-    Promise::new(subaccount_id)
-        .create_account()
-        .transfer(env::attached_deposit())
-        .add_full_access_key(env::signer_account_pk())
-        .deploy_contract(code)
-        .function_call(
-          b"new_default_meta".to_vec(),
-          serde_json::to_vec(&args).unwrap(),
-          0,
-          NFT_GAS_NEW
-        )
-}
-
 
 fn is_valid_symbol(token_id: &str) -> bool {
   for c in token_id.as_bytes() {

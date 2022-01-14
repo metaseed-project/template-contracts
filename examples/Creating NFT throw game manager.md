@@ -1,4 +1,4 @@
-# This will become automated
+# Creatin NFT throw Game manager
 
 ## actors
 
