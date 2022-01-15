@@ -189,6 +189,28 @@ impl GameManager {
       self.ingame_assets.insert(&asset_address, &options);
     }
 
+    pub fn change_rights(&mut self, asset_address: AccountId, editor: AccountId, editing_type: String) {
+      assert!(
+        self.editing_allowances.get(&asset_address).is_some(),
+        "Not exist"
+      );
+
+      let allowance: EditingOptions = self.editing_allowances.get(&asset_address).unwrap();
+
+      assert!(
+        can_change_rights(&allowance),
+        "Can't change rights"
+      );
+
+      let editing_options: EditingOptions = EditingOptions {
+        owner: allowance.owner,
+        editor: editor,
+        editing_type: editing_type,
+      };
+
+      self.editing_allowances.insert(&asset_address, &editing_options);
+    }
+
     pub fn remove_asset(&mut self, asset_address: AccountId) {
       self.ingame_assets.remove(&asset_address);
     }
@@ -214,7 +236,7 @@ impl GameManager {
 fn can_edit(allowance: &EditingOptions) -> bool {
   let account = env::predecessor_account_id();
 
-  if allowance.owner == account { 
+  if allowance.editing_type != "transfered".to_string() && allowance.owner == account { 
     return true;
   }
   else if allowance.editing_type == "full".to_string() && allowance.editor == account {
@@ -222,6 +244,19 @@ fn can_edit(allowance: &EditingOptions) -> bool {
   }
   return false;
 }
+
+fn can_change_rights(allowance: &EditingOptions) -> bool {
+  let account = env::predecessor_account_id();
+
+  if allowance.editing_type != "transfered".to_string() && allowance.owner == account { 
+    return true;
+  }
+  else if allowance.editing_type == "transfered".to_string() && allowance.editor == account {
+    return true;
+  }
+  return false;
+}
+
 
 fn create_asset_subaccount(prefix: &AccountId) -> String {
   assert!(
