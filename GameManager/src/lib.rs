@@ -44,6 +44,14 @@ pub struct AssetOptions {
   extra: String,
 }
 
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct EditingOptions {
+  owner: AccountId,
+  editor: AccountId,
+  editing_type: String,
+}
+
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
 #[near_bindgen]
@@ -51,6 +59,7 @@ pub struct AssetOptions {
 pub struct GameManager {
     pub owner_id: AccountId,
     pub ingame_assets: UnorderedMap<AccountId, AssetOptions>,
+    pub editing_allowances: UnorderedMap<AccountId, EditingOptions>,
 }
 
 #[near_bindgen]
@@ -62,23 +71,14 @@ impl GameManager {
         Self {
           owner_id,
           ingame_assets: UnorderedMap::new(b"r".to_vec()),
+          editing_allowances: UnorderedMap::new(b"r".to_vec()),
         }
     }
 
     #[payable]
     pub fn create_ingame_nft(&mut self, prefix: AccountId) {
-        assert!(
-          env::predecessor_account_id() == self.owner_id,
-          "Not a game owner"
-        );
-
-        let subaccount_id = create_asset_subaccount(prefix);
-
-        let options: AssetOptions = AssetOptions {
-          extra: "".to_string(),
-        };
-
-        self.ingame_assets.insert(&subaccount_id, &options);
+        
+       self.add_asset(create_asset_subaccount(&prefix), "".to_string());
         
         assert!(
           env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
@@ -89,7 +89,7 @@ impl GameManager {
           owner_id: env::predecessor_account_id(),
         };
     
-        Promise::new(subaccount_id)
+        Promise::new(create_asset_subaccount(&prefix))
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
@@ -104,19 +104,9 @@ impl GameManager {
 
     #[payable]
     pub fn create_ingame_ft(&mut self, prefix: AccountId, name: String, symbol: String, total_supply: u128) {
-        assert!(
-          env::predecessor_account_id() == self.owner_id,
-          "Not a game owner"
-        );
 
-        let subaccount_id = create_asset_subaccount(prefix);
+        self.add_asset(create_asset_subaccount(&prefix), "".to_string());
 
-        let options: AssetOptions = AssetOptions {
-          extra: "".to_string(),
-        };
-
-        self.ingame_assets.insert(&subaccount_id, &options);
-        
         assert!(
           env::attached_deposit() >= MIN_FT_ATTACHED_BALANCE,
           "Not enough attached deposit"
@@ -135,7 +125,7 @@ impl GameManager {
           metadata: metadata,
         };
     
-        Promise::new(subaccount_id)
+        Promise::new( create_asset_subaccount(&prefix))
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
@@ -148,16 +138,48 @@ impl GameManager {
             );
     }
 
-    #[payable]
-    pub fn set_asset(&mut self, asset_address: AccountId, extra: String) {
+    pub fn add_asset(&mut self, asset_address: AccountId, extra: String) {
       assert!(
         env::predecessor_account_id() == self.owner_id,
         "Not a game owner"
       );
 
       assert!(
+        self.ingame_assets.get(&asset_address).is_none(),
+        "Already exist"
+      );
+
+      assert!(
         env::is_valid_account_id(asset_address.as_bytes()),
-        "Asser address is invalid"
+        "Asset address is invalid"
+      );
+
+      let editing_options: EditingOptions = EditingOptions {
+        owner: env::predecessor_account_id(),
+        editor: env::predecessor_account_id(),
+        editing_type: "not set".to_string(),
+      };
+
+      self.editing_allowances.insert(&asset_address, &editing_options);
+
+      let options: AssetOptions = AssetOptions {
+        extra: extra,
+      };
+
+      self.ingame_assets.insert(&asset_address, &options);
+    }
+
+    pub fn change_asset(&mut self, asset_address: AccountId, extra: String) {
+      assert!(
+        self.editing_allowances.get(&asset_address).is_some(),
+        "Not exist"
+      );
+
+      let allowance: EditingOptions = self.editing_allowances.get(&asset_address).unwrap();
+
+      assert!(
+        can_edit(&allowance),
+        "Can't edit"
       );
 
       let options: AssetOptions = AssetOptions {
@@ -165,6 +187,10 @@ impl GameManager {
       };
 
       self.ingame_assets.insert(&asset_address, &options);
+    }
+
+    pub fn remove_asset(&mut self, asset_address: AccountId) {
+      self.ingame_assets.remove(&asset_address);
     }
 
     pub fn get_asset(&self, asset_address: AccountId) -> Option<AssetOptions> {
@@ -185,7 +211,19 @@ impl GameManager {
     }
 }
 
-fn create_asset_subaccount(prefix: AccountId) -> String {
+fn can_edit(allowance: &EditingOptions) -> bool {
+  let account = env::predecessor_account_id();
+
+  if allowance.owner == account { 
+    return true;
+  }
+  else if allowance.editing_type == "full".to_string() && allowance.editor == account {
+    return true;
+  }
+  return false;
+}
+
+fn create_asset_subaccount(prefix: &AccountId) -> String {
   assert!(
     is_valid_symbol(&prefix),
     "Prefix is invalid"
@@ -195,7 +233,7 @@ fn create_asset_subaccount(prefix: AccountId) -> String {
     format!("{}.{}", prefix, env::current_account_id());
   assert!(
     env::is_valid_account_id(subaccount_id.as_bytes()),
-    "Asser address is invalid"
+    "Asset address is invalid"
   );
 
   subaccount_id
