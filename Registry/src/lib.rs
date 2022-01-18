@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
-use near_sdk::serde::{Serialize};
+use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json;
 
 
@@ -26,6 +26,21 @@ pub struct GameOptions {
   publisher_id: AccountId,
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub enum AssetType {
+  NFT,
+  FT,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Asset {
+  asset_type: AssetType,
+  owner: AccountId,
+  amount: u128,
+}
+
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
 #[near_bindgen]
@@ -33,7 +48,10 @@ pub struct GameOptions {
 pub struct Registry {
     pub owner_id: AccountId,
     pub game_contracts: UnorderedMap<AccountId, GameOptions>,
+    pub ballances: UnorderedMap<String, Asset>,
 }
+
+
 
 #[near_bindgen]
 impl Registry {
@@ -44,7 +62,47 @@ impl Registry {
         Self {
           owner_id,
           game_contracts: UnorderedMap::new(b"r".to_vec()),
+          ballances: UnorderedMap::new(b"r".to_vec()),
         }
+    }
+
+    pub fn add_nft_asset(&mut self, nft_contract_id: AccountId, token_id: String) {
+      let contract_and_token_id = format!("{}:{}", nft_contract_id, token_id);
+
+      assert!(
+        self.ballances.get(&contract_and_token_id).is_none(),
+        "Already exist"
+      );
+
+      //Check if NFT provided
+
+      let asset: Asset = Asset {
+        asset_type: AssetType::NFT,
+        owner: env::predecessor_account_id(),
+        amount: 1,
+      };
+
+      self.ballances.insert(&contract_and_token_id, &asset);
+    }
+
+    pub fn add_ft_asset(&mut self, ft_contract_id: AccountId, amount: u128) {
+      let user_and_token_id = format!("{}:{}", env::predecessor_account_id(), ft_contract_id);
+
+      let mut initial_amount = 0;
+      if self.ballances.get(&user_and_token_id).is_some() {
+        let ballance = self.ballances.get(&user_and_token_id).unwrap();
+        initial_amount += ballance.amount;
+      }
+
+      //Check if FT provided
+
+      let asset: Asset = Asset {
+        asset_type: AssetType::FT,
+        owner: env::predecessor_account_id(),
+        amount: initial_amount + amount,
+      };
+
+      self.ballances.insert(&user_and_token_id, &asset);
     }
 
     #[payable]
