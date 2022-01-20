@@ -1,3 +1,5 @@
+use std::string;
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
@@ -9,6 +11,10 @@ use near_sdk::serde_json;
 near_sdk::setup_alloc!();
 
 const DEPLOY_ATTACHED_BALANCE: Balance = 0;
+
+const NFT_TRANSFER_GAS: Gas = 30_000_000_000_000;
+
+const FT_TRANSFER_GAS: Gas = 30_000_000_000_000;
 
 const GM_GAS_NEW: Gas = 50_000_000_000_000;
 
@@ -46,6 +52,21 @@ pub struct Asset {
 #[serde(crate = "near_sdk::serde")]
 pub struct OnTransferArgs {
   receiver_id: AccountId,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NFTTransferArgs {
+  receiver_id: AccountId,
+  token_id: String,
+  memo: String,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct FTTransferArgs {
+  receiver_id: AccountId,
+  amount: u128,
 }
 
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
@@ -126,6 +147,81 @@ impl Registry {
         self.ballances.insert(&receiver_and_token_id, &asset_receiver);
       }
 
+    }
+
+    #[payable]
+    pub fn withdraw_nft(&mut self, asset_id: String, receiver_id: String) -> Promise {
+      assert!(
+        self.ballances.get(&asset_id).is_some(),
+        "Asset not exist"
+      );
+      let asset = self.ballances.get(&asset_id).unwrap();
+      assert!(
+        asset.owner == env::predecessor_account_id(),
+        "You are not an owner"
+      );
+
+      let split: Vec<&str> = asset_id.split(":").collect();
+      let tokne_id: String = split[0].to_string();
+      let nft_contract_id: String = split[1].to_string();
+
+      let args: NFTTransferArgs = NFTTransferArgs {
+        receiver_id: receiver_id,
+        token_id: tokne_id,
+        memo: "Transfer from registry".to_string(),
+      };
+
+      self.ballances.remove(&asset_id);
+
+      Promise::new(nft_contract_id)
+        .function_call(
+          b"nft_transfer".to_vec(),
+          serde_json::to_vec(&args).unwrap(),
+          env::attached_deposit(),
+          NFT_TRANSFER_GAS
+        )
+    }
+
+    #[payable]
+    pub fn withdraw_ft(&mut self, asset_id: String, receiver_id: String, amount: u128) -> Promise {
+      assert!(
+        self.ballances.get(&asset_id).is_some(),
+        "Asset not exist"
+      );
+      let asset = self.ballances.get(&asset_id).unwrap();
+      assert!(
+        asset.owner == env::predecessor_account_id(),
+        "You are not an owner"
+      );
+
+      assert!(
+        asset.amount >= amount,
+        "Amount is not enough"
+      );
+
+      let split: Vec<&str> = asset_id.split(":").collect();
+      let ft_contract_id: String = split[1].to_string();
+
+      let asset_after: Asset = Asset {
+        asset_type: AssetType::FT,
+        owner: asset.owner,
+        amount: asset.amount - amount,
+      };
+
+      self.ballances.insert(&asset_id, &asset_after);
+
+      let args: FTTransferArgs = FTTransferArgs {
+        receiver_id: receiver_id,
+        amount: amount,
+      };
+
+      Promise::new(ft_contract_id)
+        .function_call(
+          b"ft_transfer".to_vec(),
+          serde_json::to_vec(&args).unwrap(),
+          env::attached_deposit(),
+          FT_TRANSFER_GAS
+        )
     }
 
     //-- add_nft_asset
