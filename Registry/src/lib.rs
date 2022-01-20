@@ -1,6 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::env::log;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, PromiseOrValue};
 use near_sdk::serde::{Serialize, Deserialize};
@@ -74,7 +73,6 @@ impl Registry {
     }
 
     //-- add_nft_asset
-    #[payable]
     pub fn nft_on_transfer(&mut self, sender_id: AccountId, token_id: String, msg: String) -> PromiseOrValue<bool> {
       let nft_contract_id = env::predecessor_account_id();
       let mut owner = sender_id;
@@ -107,44 +105,38 @@ impl Registry {
     }
 
     // add_ft_asset
-    // #[payable]
-    // pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: u128, msg: String) -> PromiseOrValue<U128> {
-    //   let ft_contract_id = env::predecessor_account_id();
-    //   let mut owner = sender_id;
+    pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: String, msg: String) -> PromiseOrValue<U128> {
+      let ft_contract_id = env::predecessor_account_id();
+      let mut owner = sender_id;
 
-    //   if msg != "" {
-    //   let OnTransferArgs {
-    //     transfer_type,
-    //     receiver_id,
-    //   } = near_sdk::serde_json::from_str(&msg).expect("Invalid OnTransferArgs");
+      if !msg.is_empty() {
+        let OnTransferArgs {
+            receiver_id,
+        } = near_sdk::serde_json::from_str(&msg).expect("Invalid OnTransferArgs");
 
-    //   assert!(
-    //     transfer_type == "addAsset".to_string(),
-    //     "Transfer failed"
-    //   );
+        if env::is_valid_account_id(receiver_id.as_bytes()) {
+          owner = receiver_id;
+        }
+      }
 
-      
-    //   if receiver_id.is_some() { owner = receiver_id; }
-    //   }
+      let user_and_token_id = format!("{}:{}", owner, ft_contract_id);
 
-    //   let user_and_token_id = format!("{}:{}", owner, ft_contract_id);
+      let mut transfered_amount = amount.parse().unwrap();
+      if self.ballances.get(&user_and_token_id).is_some() {
+        let ballance = self.ballances.get(&user_and_token_id).unwrap();
+        transfered_amount += ballance.amount;
+      }
 
-    //   let mut initial_amount = 0;
-    //   if self.ballances.get(&user_and_token_id).is_some() {
-    //     let ballance = self.ballances.get(&user_and_token_id).unwrap();
-    //     initial_amount += ballance.amount;
-    //   }
+      let asset: Asset = Asset {
+        asset_type: AssetType::FT,
+        owner: owner,
+        amount: transfered_amount,
+      };
 
-    //   let asset: Asset = Asset {
-    //     asset_type: AssetType::FT,
-    //     owner: owner,
-    //     amount: initial_amount + amount,
-    //   };
+      self.ballances.insert(&user_and_token_id, &asset);
 
-    //   self.ballances.insert(&user_and_token_id, &asset);
-
-    //   PromiseOrValue::Value(U128(0))
-    // }
+      PromiseOrValue::Value(U128(0))
+    }
 
     #[payable]
     pub fn create_game_manager(&mut self, prefix: AccountId) {
