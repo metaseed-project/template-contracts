@@ -1,5 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
+use near_sdk::env::log;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, PromiseOrValue};
 use near_sdk::serde::{Serialize, Deserialize};
@@ -45,7 +46,6 @@ pub struct Asset {
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct OnTransferArgs {
-  transfer_type: String,
   receiver_id: AccountId,
 }
 
@@ -58,7 +58,6 @@ pub struct Registry {
     pub game_contracts: UnorderedMap<AccountId, GameOptions>,
     pub ballances: UnorderedMap<String, Asset>,
 }
-
 
 
 #[near_bindgen]
@@ -75,20 +74,19 @@ impl Registry {
     }
 
     //-- add_nft_asset
-    pub fn nft_on_transfer(&mut self, sender_id: AccountId, previous_owner_id: AccountId, token_id: String, msg: String) -> PromiseOrValue<bool> {
+    #[payable]
+    pub fn nft_on_transfer(&mut self, sender_id: AccountId, token_id: String, msg: String) -> PromiseOrValue<bool> {
       let nft_contract_id = env::predecessor_account_id();
       let mut owner = sender_id;
 
-      let OnTransferArgs {
-          transfer_type,
-          receiver_id,
-      } = near_sdk::serde_json::from_str(&msg).e .expect("Invalid OnTransferArgs");
+      if !msg.is_empty() {
+        let OnTransferArgs {
+            receiver_id,
+        } = near_sdk::serde_json::from_str(&msg).expect("Invalid OnTransferArgs");
 
-        assert!(
-          transfer_type == "addAsset".to_string(),
-          "Transfer failed"
-        );
-
+        if env::is_valid_account_id(receiver_id.as_bytes()) {
+          owner = receiver_id;
+        }
       }
 
       let contract_and_token_id = format!("{}:{}", nft_contract_id, token_id);
@@ -105,7 +103,7 @@ impl Registry {
       };
 
       self.ballances.insert(&contract_and_token_id, &asset);
-      PromiseOrValue::Value(true)
+      PromiseOrValue::Value(false)
     }
 
     // add_ft_asset
@@ -180,6 +178,23 @@ impl Registry {
       let keys = self.game_contracts.keys_as_vector();
       let values = self.game_contracts.values_as_vector();
       (from_index..std::cmp::min(from_index + limit, self.game_contracts.len()))
+          .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
+          .collect()
+    }
+
+    pub fn get_ballance(&self, ballance_address: AccountId) -> Option<Asset> {
+      return self.ballances.get(&ballance_address);
+    }
+    
+    pub fn get_balances_counts(&self) -> u64 {
+        return self.ballances.len();
+    }
+    
+    /// Retrieves multiple elements from the `ballances`.
+    pub fn get_ballances(&self, from_index: u64, limit: u64) -> Vec<(AccountId, Asset)> {
+      let keys = self.ballances.keys_as_vector();
+      let values = self.ballances.values_as_vector();
+      (from_index..std::cmp::min(from_index + limit, self.ballances.len()))
           .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
           .collect()
     }
