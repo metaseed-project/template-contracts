@@ -27,7 +27,7 @@ pub struct GameOptions {
   publisher_id: AccountId,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AssetType {
   NFT,
@@ -70,6 +70,62 @@ impl Registry {
           game_contracts: UnorderedMap::new(b"r".to_vec()),
           ballances: UnorderedMap::new(b"r".to_vec()),
         }
+    }
+
+    pub fn transfer_asset(&mut self, asset_id: AccountId, receiver_id: String, amount: u128) {
+      assert!(
+        self.ballances.get(&asset_id).is_some(),
+        "Asset not exist"
+      );
+
+      let sender = env::predecessor_account_id();
+
+      let asset = self.ballances.get(&asset_id).unwrap();
+      assert!(
+        asset.owner == sender,
+        "You are not an owner"
+      );
+
+      if asset.asset_type == AssetType::NFT {
+        let asset: Asset = Asset {
+          asset_type: AssetType::NFT,
+          owner: receiver_id,
+          amount: 1,
+        };
+        self.ballances.insert(&asset_id, &asset);
+
+      } else if asset.asset_type == AssetType::FT {
+        assert!(
+          asset.amount >= amount,
+          "Amount is not enough"
+        );
+
+        let asset_sender: Asset = Asset {
+          asset_type: AssetType::FT,
+          owner: asset.owner,
+          amount: asset.amount - amount,
+        };
+        self.ballances.insert(&asset_id, &asset_sender);
+
+        
+        let ft_contract_id: String = asset_id.split(":").next().unwrap().to_string();
+        let receiver_and_token_id = format!("{}:{}", receiver_id, ft_contract_id);
+
+        let mut transfered_amount = amount;
+        if self.ballances.get(&receiver_and_token_id).is_some() {
+          let ballance = self.ballances.get(&receiver_and_token_id).unwrap();
+          transfered_amount += ballance.amount;
+        }
+  
+        let asset_receiver: Asset = Asset {
+          asset_type: AssetType::FT,
+          owner: receiver_id,
+          amount: transfered_amount,
+        };
+  
+        self.ballances.insert(&receiver_and_token_id, &asset_receiver);
+      }
+
     }
 
     //-- add_nft_asset
