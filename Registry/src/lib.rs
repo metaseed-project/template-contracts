@@ -1,6 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
+use near_sdk::json_types::U128;
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, PromiseOrValue};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json;
 
@@ -41,6 +42,13 @@ pub struct Asset {
   amount: u128,
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OnTransferArgs {
+  transfer_type: String,
+  receiver_id: AccountId,
+}
+
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
 #[near_bindgen]
@@ -66,7 +74,23 @@ impl Registry {
         }
     }
 
-    pub fn add_nft_asset(&mut self, nft_contract_id: AccountId, token_id: String) {
+    //-- add_nft_asset
+    pub fn nft_on_transfer(&mut self, sender_id: AccountId, previous_owner_id: AccountId, token_id: String, msg: String) -> PromiseOrValue<bool> {
+      let nft_contract_id = env::predecessor_account_id();
+      let mut owner = sender_id;
+
+      let OnTransferArgs {
+          transfer_type,
+          receiver_id,
+      } = near_sdk::serde_json::from_str(&msg).e .expect("Invalid OnTransferArgs");
+
+        assert!(
+          transfer_type == "addAsset".to_string(),
+          "Transfer failed"
+        );
+
+      }
+
       let contract_and_token_id = format!("{}:{}", nft_contract_id, token_id);
 
       assert!(
@@ -74,36 +98,55 @@ impl Registry {
         "Already exist"
       );
 
-      //Check if NFT provided
-
       let asset: Asset = Asset {
         asset_type: AssetType::NFT,
-        owner: env::predecessor_account_id(),
+        owner: owner,
         amount: 1,
       };
 
       self.ballances.insert(&contract_and_token_id, &asset);
+      PromiseOrValue::Value(true)
     }
 
-    pub fn add_ft_asset(&mut self, ft_contract_id: AccountId, amount: u128) {
-      let user_and_token_id = format!("{}:{}", env::predecessor_account_id(), ft_contract_id);
+    // add_ft_asset
+    // #[payable]
+    // pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: u128, msg: String) -> PromiseOrValue<U128> {
+    //   let ft_contract_id = env::predecessor_account_id();
+    //   let mut owner = sender_id;
 
-      let mut initial_amount = 0;
-      if self.ballances.get(&user_and_token_id).is_some() {
-        let ballance = self.ballances.get(&user_and_token_id).unwrap();
-        initial_amount += ballance.amount;
-      }
+    //   if msg != "" {
+    //   let OnTransferArgs {
+    //     transfer_type,
+    //     receiver_id,
+    //   } = near_sdk::serde_json::from_str(&msg).expect("Invalid OnTransferArgs");
 
-      //Check if FT provided
+    //   assert!(
+    //     transfer_type == "addAsset".to_string(),
+    //     "Transfer failed"
+    //   );
 
-      let asset: Asset = Asset {
-        asset_type: AssetType::FT,
-        owner: env::predecessor_account_id(),
-        amount: initial_amount + amount,
-      };
+      
+    //   if receiver_id.is_some() { owner = receiver_id; }
+    //   }
 
-      self.ballances.insert(&user_and_token_id, &asset);
-    }
+    //   let user_and_token_id = format!("{}:{}", owner, ft_contract_id);
+
+    //   let mut initial_amount = 0;
+    //   if self.ballances.get(&user_and_token_id).is_some() {
+    //     let ballance = self.ballances.get(&user_and_token_id).unwrap();
+    //     initial_amount += ballance.amount;
+    //   }
+
+    //   let asset: Asset = Asset {
+    //     asset_type: AssetType::FT,
+    //     owner: owner,
+    //     amount: initial_amount + amount,
+    //   };
+
+    //   self.ballances.insert(&user_and_token_id, &asset);
+
+    //   PromiseOrValue::Value(U128(0))
+    // }
 
     #[payable]
     pub fn create_game_manager(&mut self, prefix: AccountId) {
