@@ -30,8 +30,12 @@ near call $ContractId withdraw_ft '{"asset_id": "metaseed.testnet:ft.examples.te
 
 near call $ContractId withdraw_ft '{"asset_id": "metaseed.testnet:ft.examples.testnet", "receiver_id": "'$Actor2'", "amount": 2}' --accountId $Actor2 --gas 300000000000000 --depositYocto 1
 
+near call $ContractId withdraw_nft '{"asset_id": "example-nft.testnet:1125", "receiver_id": "'$Actor'"}' --accountId $Actor --gas 300000000000000 --depositYocto 1
+
 ### check
 
 near view $ContractId get_ballances '{"from_index": 0, "limit": 10}'
 
 near view ft.examples.testnet ft_balance_of '{"account_id": "'$Actor2'"}'
+
+near view example-nft.testnet nft_tokens_for_owner '{"account_id": "'$Actor'"}'

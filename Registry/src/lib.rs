@@ -161,8 +161,8 @@ impl Registry {
       );
 
       let split: Vec<&str> = asset_id.split(":").collect();
-      let tokne_id: String = split[0].to_string();
-      let nft_contract_id: String = split[1].to_string();
+      let nft_contract_id: String = split[0].to_string();
+      let tokne_id: String = split[1].to_string();
 
       let args: NFTTransferArgs = NFTTransferArgs {
         receiver_id: receiver_id,
