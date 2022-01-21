@@ -1,5 +1,3 @@
-use std::string;
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
@@ -66,7 +64,7 @@ pub struct NFTTransferArgs {
 #[serde(crate = "near_sdk::serde")]
 pub struct FTTransferArgs {
   receiver_id: AccountId,
-  amount: u128,
+  amount: String,
 }
 
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
@@ -93,7 +91,7 @@ impl Registry {
         }
     }
 
-    pub fn transfer_asset(&mut self, asset_id: AccountId, receiver_id: String, amount: u128) {
+    pub fn transfer_asset(&mut self, asset_id: String, receiver_id: String, amount: u128) {
       assert!(
         self.ballances.get(&asset_id).is_some(),
         "Asset not exist"
@@ -129,7 +127,8 @@ impl Registry {
         self.ballances.insert(&asset_id, &asset_sender);
 
         
-        let ft_contract_id: String = asset_id.split(":").next().unwrap().to_string();
+        let split: Vec<&str> = asset_id.split(":").collect();
+        let ft_contract_id: String = split[1].to_string();
         let receiver_and_token_id = format!("{}:{}", receiver_id, ft_contract_id);
 
         let mut transfered_amount = amount;
@@ -212,7 +211,7 @@ impl Registry {
 
       let args: FTTransferArgs = FTTransferArgs {
         receiver_id: receiver_id,
-        amount: amount,
+        amount: amount.to_string(),
       };
 
       Promise::new(ft_contract_id)
@@ -256,7 +255,7 @@ impl Registry {
       PromiseOrValue::Value(false)
     }
 
-    // add_ft_asset
+    //-- add_ft_asset
     pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: String, msg: String) -> PromiseOrValue<U128> {
       let ft_contract_id = env::predecessor_account_id();
       let mut owner = sender_id;
@@ -317,7 +316,6 @@ impl Registry {
         return self.game_contracts.len();
     }
 
-    /// Retrieves multiple elements from the `game_contracts`.
     pub fn get_games(&self, from_index: u64, limit: u64) -> Vec<(AccountId, GameOptions)> {
       let keys = self.game_contracts.keys_as_vector();
       let values = self.game_contracts.values_as_vector();
@@ -334,7 +332,6 @@ impl Registry {
         return self.ballances.len();
     }
     
-    /// Retrieves multiple elements from the `ballances`.
     pub fn get_ballances(&self, from_index: u64, limit: u64) -> Vec<(AccountId, Asset)> {
       let keys = self.ballances.keys_as_vector();
       let values = self.ballances.values_as_vector();
