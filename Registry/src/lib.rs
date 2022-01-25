@@ -1,13 +1,15 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, PromiseOrValue};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, PromiseOrValue, BorshStorageKey};
 use near_sdk::serde::{Serialize, Deserialize};
 use near_sdk::serde_json;
 
 
 near_sdk::setup_alloc!();
 
+
+// TODO Set Value
 const DEPLOY_ATTACHED_BALANCE: Balance = 0;
 
 const NFT_TRANSFER_GAS: Gas = 30_000_000_000_000;
@@ -18,13 +20,13 @@ const GM_GAS_NEW: Gas = 50_000_000_000_000;
 
 const GM_WASM_CODE: &[u8] = include_bytes!("../../GameManager/target/wasm32-unknown-unknown/release/game_manager.wasm");
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct GMArgs {
     pub owner_id: AccountId,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct GameOptions {
   extra: String,
@@ -38,21 +40,22 @@ pub enum AssetType {
   FT,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Asset {
   asset_type: AssetType,
   owner: AccountId,
+  // may be too big. I guess u64 will be enough
   amount: u128,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct OnTransferArgs {
   receiver_id: AccountId,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NFTTransferArgs {
   receiver_id: AccountId,
@@ -60,7 +63,7 @@ pub struct NFTTransferArgs {
   memo: String,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct FTTransferArgs {
   receiver_id: AccountId,
@@ -74,9 +77,15 @@ pub struct FTTransferArgs {
 pub struct Registry {
     pub owner_id: AccountId,
     pub game_contracts: UnorderedMap<AccountId, GameOptions>,
+    /// TODO typo ballances => balances?
     pub ballances: UnorderedMap<String, Asset>,
 }
 
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+   GameContracts,
+   Balances
+}
 
 #[near_bindgen]
 impl Registry {
@@ -86,12 +95,14 @@ impl Registry {
         assert!(env::state_read::<Self>().is_none(), "Already initialized");
         Self {
           owner_id,
-          game_contracts: UnorderedMap::new(b"r".to_vec()),
-          ballances: UnorderedMap::new(b"r".to_vec()),
+          // Use Storage Keys as GameManager
+          game_contracts: UnorderedMap::new(StorageKey::GameContracts),
+          ballances: UnorderedMap::new(StorageKey::Balances),
         }
     }
 
-    pub fn transfer_asset(&mut self, asset_id: String, receiver_id: String, amount: u128) {
+   // u128 -> U128
+    pub fn transfer_asset(&mut self, asset_id: String, receiver_id: String, amount: U128) {
       assert!(
         self.ballances.get(&asset_id).is_some(),
         "Asset not exist"
@@ -109,40 +120,42 @@ impl Registry {
         let asset: Asset = Asset {
           asset_type: AssetType::NFT,
           owner: receiver_id,
+          // what if asset amount was updated and it is not 1?
           amount: 1,
         };
         self.ballances.insert(&asset_id, &asset);
 
       } else if asset.asset_type == AssetType::FT {
         assert!(
-          asset.amount >= amount,
+          asset.amount >= amount.0,
           "Amount is not enough"
         );
 
         let asset_sender: Asset = Asset {
           asset_type: AssetType::FT,
           owner: asset.owner,
-          amount: asset.amount - amount,
+          amount: asset.amount - amount.0,
         };
         self.ballances.insert(&asset_id, &asset_sender);
 
-        
+
         let split: Vec<&str> = asset_id.split(":").collect();
         let ft_contract_id: String = split[1].to_string();
         let receiver_and_token_id = format!("{}:{}", receiver_id, ft_contract_id);
 
-        let mut transfered_amount = amount;
+        let mut transfered_amount: u128 = amount.0;
         if self.ballances.get(&receiver_and_token_id).is_some() {
+           // typo? balance
           let ballance = self.ballances.get(&receiver_and_token_id).unwrap();
           transfered_amount += ballance.amount;
         }
-  
+
         let asset_receiver: Asset = Asset {
           asset_type: AssetType::FT,
           owner: receiver_id,
           amount: transfered_amount,
         };
-  
+
         self.ballances.insert(&receiver_and_token_id, &asset_receiver);
       }
 
@@ -162,10 +175,11 @@ impl Registry {
 
       let split: Vec<&str> = asset_id.split(":").collect();
       let nft_contract_id: String = split[0].to_string();
+       // typo token_id ?
       let tokne_id: String = split[1].to_string();
 
       let args: NFTTransferArgs = NFTTransferArgs {
-        receiver_id: receiver_id,
+        receiver_id,
         token_id: tokne_id,
         memo: "Transfer from registry".to_string(),
       };
@@ -178,11 +192,11 @@ impl Registry {
           serde_json::to_vec(&args).unwrap(),
           env::attached_deposit(),
           NFT_TRANSFER_GAS
-        )
+        )// TODO callback to check if transfer was successful may be needed
     }
 
     #[payable]
-    pub fn withdraw_ft(&mut self, asset_id: String, receiver_id: String, amount: u128) -> Promise {
+    pub fn withdraw_ft(&mut self, asset_id: String, receiver_id: String, amount: U128) -> Promise {
       assert!(
         self.ballances.get(&asset_id).is_some(),
         "Asset not exist"
@@ -194,7 +208,7 @@ impl Registry {
       );
 
       assert!(
-        asset.amount >= amount,
+        asset.amount >= amount.0,
         "Amount is not enough"
       );
 
@@ -204,14 +218,14 @@ impl Registry {
       let asset_after: Asset = Asset {
         asset_type: AssetType::FT,
         owner: asset.owner,
-        amount: asset.amount - amount,
+        amount: asset.amount - amount.0,
       };
 
       self.ballances.insert(&asset_id, &asset_after);
 
       let args: FTTransferArgs = FTTransferArgs {
-        receiver_id: receiver_id,
-        amount: amount.to_string(),
+        receiver_id,
+        amount: amount.0.to_string(),
       };
 
       Promise::new(ft_contract_id)
@@ -220,7 +234,7 @@ impl Registry {
           serde_json::to_vec(&args).unwrap(),
           env::attached_deposit(),
           FT_TRANSFER_GAS
-        )
+        )// TODO callback to check if transfer was successful may be needed. Example: https://github.com/zavodil/quizchain/blob/18c71445cd4181583617c4f30ee10adf6bdd2002/contract/src/rewards.rs#L28
     }
 
     //-- add_nft_asset
@@ -247,11 +261,13 @@ impl Registry {
 
       let asset: Asset = Asset {
         asset_type: AssetType::NFT,
-        owner: owner,
+        owner,
         amount: 1,
       };
 
       self.ballances.insert(&contract_and_token_id, &asset);
+
+       // will it always return false?
       PromiseOrValue::Value(false)
     }
 
@@ -274,18 +290,20 @@ impl Registry {
 
       let mut transfered_amount = amount.parse().unwrap();
       if self.ballances.get(&user_and_token_id).is_some() {
+         // typo? balance
         let ballance = self.ballances.get(&user_and_token_id).unwrap();
         transfered_amount += ballance.amount;
       }
 
       let asset: Asset = Asset {
         asset_type: AssetType::FT,
-        owner: owner,
+        owner,
         amount: transfered_amount,
       };
 
       self.ballances.insert(&user_and_token_id, &asset);
 
+       // will it always return 0?
       PromiseOrValue::Value(U128(0))
     }
 
@@ -324,14 +342,16 @@ impl Registry {
           .collect()
     }
 
+   // typo? get_balance, balance_address
     pub fn get_ballance(&self, ballance_address: AccountId) -> Option<Asset> {
       return self.ballances.get(&ballance_address);
     }
-    
+
     pub fn get_balances_counts(&self) -> u64 {
-        return self.ballances.len();
+        self.ballances.len()
     }
-    
+
+   // typo? get_balances
     pub fn get_ballances(&self, from_index: u64, limit: u64) -> Vec<(AccountId, Asset)> {
       let keys = self.ballances.keys_as_vector();
       let values = self.ballances.values_as_vector();
@@ -347,7 +367,7 @@ fn create_gm_subaccount(prefix: AccountId) -> String {
     "Prefix is invalid"
   );
 
-  let subaccount_id = 
+  let subaccount_id =
     format!("{}.{}", prefix, env::current_account_id());
   assert!(
     env::is_valid_account_id(subaccount_id.as_bytes()),

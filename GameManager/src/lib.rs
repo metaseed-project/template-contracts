@@ -1,21 +1,25 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, PanicOnDefault, Gas, BorshStorageKey};
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Serialize};
 use near_sdk::serde_json;
 
 
 near_sdk::setup_alloc!();
 
+// TODO set a value here
 const MIN_NFT_ATTACHED_BALANCE: Balance = 0;
 const NFT_GAS_NEW: Gas = 50_000_000_000_000;
 const NFT_WASM_CODE: &[u8] = include_bytes!("../../SimpleNFT/res/non_fungible_token.wasm");
 
+
+// TODO set a value here
 const MIN_FT_ATTACHED_BALANCE: Balance = 0;
 const FT_GAS_NEW: Gas = 50_000_000_000_000;
 const FT_WASM_CODE: &[u8] = include_bytes!("../../SimpleFT/res/fungible_token.wasm");
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct FTMetadata {
     pub spec: String,
@@ -24,7 +28,7 @@ pub struct FTMetadata {
     pub decimals: u128,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct FTArgs {
     pub owner_id: AccountId,
@@ -32,25 +36,33 @@ pub struct FTArgs {
     pub metadata: FTMetadata,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NFTArgs {
     pub owner_id: AccountId,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetOptions {
   extra: String,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct EditingOptions {
   owner: AccountId,
   editor: AccountId,
   editing_type: String,
 }
+
+// TODO create enum of editing_type to avoid any typos in strings
+// editing_type: EditingType,
+// enum EditingType{
+//    Transfered,
+//    Full,
+//    ...
+// }
 
 // add the following attributes to prepare your code for serialization and invocation on the blockchain
 // More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
@@ -62,6 +74,13 @@ pub struct GameManager {
     pub editing_allowances: UnorderedMap<AccountId, EditingOptions>,
 }
 
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+   IngameAssets,
+   EditingAllowances
+}
+
+
 #[near_bindgen]
 impl GameManager {
 
@@ -70,25 +89,26 @@ impl GameManager {
         assert!(env::state_read::<Self>().is_none(), "Already initialized");
         Self {
           owner_id,
-          ingame_assets: UnorderedMap::new(b"r".to_vec()),
-          editing_allowances: UnorderedMap::new(b"r".to_vec()),
+          ingame_assets: UnorderedMap::new(StorageKey::IngameAssets),
+          editing_allowances: UnorderedMap::new(StorageKey::EditingAllowances),
         }
     }
 
     #[payable]
     pub fn create_ingame_nft(&mut self, prefix: AccountId) {
-        
-       self.add_asset(create_asset_subaccount(&prefix), "".to_string());
-        
+
         assert!(
           env::attached_deposit() >= MIN_NFT_ATTACHED_BALANCE,
           "Not enough attached deposit"
         );
-    
+
+       // TODO save create_asset_subaccount(&prefix) value in variable to avoid double execution (line 112)
+       self.add_asset(create_asset_subaccount(&prefix), "".to_string());
+
         let args: NFTArgs = NFTArgs {
           owner_id: env::predecessor_account_id(),
         };
-    
+
         Promise::new(create_asset_subaccount(&prefix))
             .create_account()
             .transfer(env::attached_deposit())
@@ -103,28 +123,29 @@ impl GameManager {
     }
 
     #[payable]
-    pub fn create_ingame_ft(&mut self, prefix: AccountId, name: String, symbol: String, total_supply: u128) {
-
-        self.add_asset(create_asset_subaccount(&prefix), "".to_string());
+    /// Use U128 instead of u128 to provide stings and avoid overflow in UI for BigNumbers
+    pub fn create_ingame_ft(&mut self, prefix: AccountId, name: String, symbol: String, total_supply: U128) {
 
         assert!(
           env::attached_deposit() >= MIN_FT_ATTACHED_BALANCE,
           "Not enough attached deposit"
         );
-    
+
+       self.add_asset(create_asset_subaccount(&prefix), "".to_string());
+
         let metadata: FTMetadata = FTMetadata {
           spec: "ft-1.0.0".to_string(),
-          name: name,
-          symbol: symbol,
+          name,
+          symbol,
           decimals: 8,
         };
 
         let args: FTArgs = FTArgs {
           owner_id: env::predecessor_account_id(),
-          total_supply: total_supply,
-          metadata: metadata,
+          total_supply: total_supply.0,
+          metadata,
         };
-    
+
         Promise::new( create_asset_subaccount(&prefix))
             .create_account()
             .transfer(env::attached_deposit())
@@ -139,10 +160,7 @@ impl GameManager {
     }
 
     pub fn add_asset(&mut self, asset_address: AccountId, extra: String) {
-      assert!(
-        env::predecessor_account_id() == self.owner_id,
-        "Not a game owner"
-      );
+      assert_eq!(env::predecessor_account_id(), self.owner_id, "Not a game owner");
 
       assert!(
         self.ingame_assets.get(&asset_address).is_none(),
@@ -157,13 +175,14 @@ impl GameManager {
       let editing_options: EditingOptions = EditingOptions {
         owner: env::predecessor_account_id(),
         editor: env::predecessor_account_id(),
+        // if you set `editing_type: Option<String>` you may set `editing_type: None` here
         editing_type: "not set".to_string(),
       };
 
       self.editing_allowances.insert(&asset_address, &editing_options);
 
       let options: AssetOptions = AssetOptions {
-        extra: extra,
+        extra,
       };
 
       self.ingame_assets.insert(&asset_address, &options);
@@ -171,10 +190,13 @@ impl GameManager {
 
     pub fn change_asset(&mut self, asset_address: AccountId, extra: String) {
       assert!(
+         // TODO did you mean `self.ingame_assets`? What if asset not exists?
         self.editing_allowances.get(&asset_address).is_some(),
         "Not exist"
       );
 
+       // will panic if allowance not exists. You may leave a hint for user:
+       // let allowance: EditingOptions = self.editing_allowances.get(&asset_address).expect("ERR_ALLOWANCE_NOT_FOUND");
       let allowance: EditingOptions = self.editing_allowances.get(&asset_address).unwrap();
 
       assert!(
@@ -183,13 +205,14 @@ impl GameManager {
       );
 
       let options: AssetOptions = AssetOptions {
-        extra: extra,
+        extra,
       };
 
       self.ingame_assets.insert(&asset_address, &options);
     }
 
     pub fn change_rights(&mut self, asset_address: AccountId, editor: AccountId, editing_type: String) {
+       // same as line 192
       assert!(
         self.editing_allowances.get(&asset_address).is_some(),
         "Not exist"
@@ -204,23 +227,24 @@ impl GameManager {
 
       let editing_options: EditingOptions = EditingOptions {
         owner: allowance.owner,
-        editor: editor,
-        editing_type: editing_type,
+        editor,
+        editing_type,
       };
 
       self.editing_allowances.insert(&asset_address, &editing_options);
     }
 
     pub fn remove_asset(&mut self, asset_address: AccountId) {
+       // TODO add ownership check
       self.ingame_assets.remove(&asset_address);
     }
 
     pub fn get_asset(&self, asset_address: AccountId) -> Option<AssetOptions> {
-      return self.ingame_assets.get(&asset_address);
+      self.ingame_assets.get(&asset_address)
     }
 
     pub fn get_counts(&self) -> u64 {
-      return self.ingame_assets.len();
+      self.ingame_assets.len()
     }
 
     /// Retrieves multiple elements from the `ingame_assets`.
@@ -236,7 +260,7 @@ impl GameManager {
 fn can_edit(allowance: &EditingOptions) -> bool {
   let account = env::predecessor_account_id();
 
-  if allowance.editing_type != "transfered".to_string() && allowance.owner == account { 
+  if allowance.editing_type != "transfered".to_string() && allowance.owner == account {
     return true;
   }
   else if allowance.editing_type == "full".to_string() && allowance.editor == account {
@@ -248,9 +272,10 @@ fn can_edit(allowance: &EditingOptions) -> bool {
 fn can_change_rights(allowance: &EditingOptions) -> bool {
   let account = env::predecessor_account_id();
 
-  if allowance.editing_type != "transfered".to_string() && allowance.owner == account { 
+  if allowance.editing_type != "transfered".to_string() && allowance.owner == account {
     return true;
   }
+     // TODO Did you mean `full` here?
   else if allowance.editing_type == "transfered".to_string() && allowance.editor == account {
     return true;
   }
@@ -259,12 +284,14 @@ fn can_change_rights(allowance: &EditingOptions) -> bool {
 
 
 fn create_asset_subaccount(prefix: &AccountId) -> String {
+   // TODO check id prefix already created and panic?
+
   assert!(
-    is_valid_symbol(&prefix),
+    is_valid_symbol(prefix),
     "Prefix is invalid"
   );
 
-  let subaccount_id = 
+  let subaccount_id =
     format!("{}.{}", prefix, env::current_account_id());
   assert!(
     env::is_valid_account_id(subaccount_id.as_bytes()),

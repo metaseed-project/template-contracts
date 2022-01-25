@@ -39,6 +39,8 @@ const DATA_IMAGE_SVG_NEAR_ICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
+
+    /// TODO do you need default meta? May be removed
     #[init]
     pub fn new_default_meta(owner_id: ValidAccountId, total_supply: U128) -> Self {
         Self::new(
@@ -67,6 +69,7 @@ impl Contract {
         assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
         let mut this = Self {
+            // TODO looks outdated, please use StorageKeys instead of b"m".to_vec()
             token: FungibleToken::new(b"a".to_vec()),
             metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
         };

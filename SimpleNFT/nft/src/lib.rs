@@ -51,6 +51,8 @@ enum StorageKey {
 impl Contract {
     /// Initializes the contract owned by `owner_id` with
     /// default metadata (for example purposes only).
+
+    /// TODO do you need default meta? May be removed
     #[init]
     pub fn new_default_meta(owner_id: ValidAccountId) -> Self {
         Self::new(
