@@ -1,8 +1,8 @@
-Admin=near_empire.testnet
+Admin=nearspacecontract.testnet
 
 Fuel=fuel.$Admin
 Artifacts=artifacts.$Admin
-Planets=planets.$Admin
+Planets=planets_v1.$Admin
 
 near create-account $Fuel --masterAccount $Admin
 near create-account $Artifacts --masterAccount $Admin
@@ -10,11 +10,12 @@ near create-account $Planets --masterAccount $Admin
 
 ### Planets
 
-near deploy --wasmFile SimpleNFT/res/non_fungible_token.wasm --accountId $Planets
-near call $Planets new_default_meta '{"owner_id": "'$Admin'"}' --accountId $Planets
+near deploy --wasmFile ./SimpleNFT/res/non_fungible_token.wasm --accountId $Planets
+
+near call $Planets new '{"owner_id": "phoneiostest.testnet", "metadata": { "name": "Near Space Planets", "symbol": "NSP", "icon": null, "base_uri": null, "reference": null, "reference_hash": null, "spec": "nft-1.0.0" }}' --accountId $Planets
 
 near view $Planets nft_metadata
-near call $Planets nft_mint '{"token_id": "0", "receiver_id": "'$Admin'", "token_metadata": { "title": "Test Planet", "description": "", "media": "", "copies": 1}}' --accountId $Admin --deposit 0.1
+near call $Planets nft_mint '{"token_id": "0", "receiver_id": "'$Admin'", "token_metadata": { "title": "Test Planet", "description": "", "media": "", "copies": 1}}' --accountId phoneiostest.testnet --deposit 0.1
 
 ### Fuel
 
